@@ -12,10 +12,12 @@
 #[cfg(feature = "parse_str_dd")]
 #[cfg(feature = "parse_str_dms")]
 use regex::Regex;
+#[cfg(feature = "resolve_osm")]
+use serde::Deserialize;
 #[cfg(feature = "parse_str_dd")]
 #[cfg(feature = "parse_str_dms")]
 use std::num::ParseFloatError;
-use std::{str::FromStr, fmt};
+use std::{fmt, str::FromStr};
 
 /// The base coordinate struct.
 /// It stores the location as latitude, longitude floats
@@ -49,7 +51,7 @@ impl fmt::Display for Coordinate {
 }
 
 /// Error when handling coordinates
-#[derive(Debug, PartialEq)]
+#[derive(Debug)]
 pub enum CoordinateError {
     /// No parser available - enable them via features
     MissingParser,
@@ -63,6 +65,12 @@ pub enum CoordinateError {
     #[cfg(feature = "parse_str_dd")]
     #[cfg(feature = "parse_str_dms")]
     ParseFloatError(ParseFloatError),
+    /// Location is not resolvable by the resolver
+    #[cfg(feature = "resolve_osm")]
+    Unresolveable,
+    /// There was a problem connecting to the API
+    #[cfg(feature = "resolve_osm")]
+    ReqwestError(reqwest::Error),
 }
 
 #[cfg(feature = "parse_str_dd")]
@@ -70,6 +78,13 @@ pub enum CoordinateError {
 impl From<ParseFloatError> for CoordinateError {
     fn from(err: ParseFloatError) -> Self {
         Self::ParseFloatError(err)
+    }
+}
+
+#[cfg(feature = "resolve_osm")]
+impl From<reqwest::Error> for CoordinateError {
+    fn from(err: reqwest::Error) -> Self {
+        Self::ReqwestError(err)
     }
 }
 
@@ -240,6 +255,39 @@ impl FromStr for Coordinate {
     }
 }
 
+/// Location of Open Street Maps
+#[cfg(feature = "resolve_osm")]
+#[derive(Deserialize)]
+struct OSMLocation {
+    /// Latitude
+    lat: String,
+    /// Longitude
+    lon: String,
+}
+
+#[cfg(feature = "resolve_osm")]
+impl Coordinate {
+    /// Resolve a location using the Nominatim Openstreetmap API
+    pub async fn resolve_oms(location: &str) -> Result<Self, CoordinateError> {
+        let locations = reqwest::Client::new()
+            .get("https://nominatim.openstreetmap.org/search")
+            .header(reqwest::header::USER_AGENT, "tanker_price")
+            .query(&[("format", "json"), ("q", location)])
+            .send()
+            .await?
+            .json::<Vec<OSMLocation>>()
+            .await?;
+        if let Some(location) = locations.get(0) {
+            Ok(Coordinate {
+                lng: location.lon.parse()?,
+                lat: location.lat.parse()?,
+            })
+        } else {
+            Err(CoordinateError::Unresolveable)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "parse_str_dd")]
@@ -247,8 +295,8 @@ mod tests {
     fn parse_str_dd_integer() {
         use crate::Coordinate;
 
-        let expected = Ok(Coordinate { lat: 10., lng: 20. });
-        let real = Coordinate::parse_str_dd("10,20");
+        let expected = Coordinate { lat: 10., lng: 20. };
+        let real = Coordinate::parse_str_dd("10,20").unwrap();
         assert_eq!(expected, real);
     }
     #[cfg(feature = "parse_str_dd")]
@@ -256,8 +304,8 @@ mod tests {
     fn parse_str_dd_float() {
         use crate::Coordinate;
 
-        let expected = Ok(Coordinate { lat: 10., lng: 20. });
-        let real = Coordinate::parse_str_dd("10.0,20.0");
+        let expected = Coordinate { lat: 10., lng: 20. };
+        let real = Coordinate::parse_str_dd("10.0,20.0").unwrap();
         assert_eq!(expected, real);
     }
     #[cfg(feature = "parse_str_dd")]
@@ -265,8 +313,10 @@ mod tests {
     fn parse_str_dd_invalid() {
         use crate::{Coordinate, CoordinateError};
 
-        let expected = Err(CoordinateError::Malformed);
-        let real = Coordinate::parse_str_dd("Asd,20.0");
-        assert_eq!(expected, real);
+        match Coordinate::parse_str_dd("Asd,20.0") {
+            Err(CoordinateError::Malformed) => {}
+            Err(_) => panic!("Wrong Error"),
+            Ok(_) => panic!("Should've failed"),
+        }
     }
 }
