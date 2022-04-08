@@ -1,0 +1,14 @@
+[package]
+name = "recoord"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+regex = { version = "1.5", optional = true }
+
+[features]
+default = ["parse_str_dd", "parse_str_dms"]
+parse_str_dd = ["dep:regex"]
+parse_str_dms = ["dep:regex"]
