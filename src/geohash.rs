@@ -58,13 +58,14 @@ impl TryFrom<char> for GeohashB32 {
 /// ```
 pub fn parse_geohash(hash: &str) -> Result<Coordinate, CoordinateError> {
     let lowercased = hash.to_lowercase();
-    let offset = lowercased.chars().count() % 2;
+    let first_bit_lat = lowercased.chars().count() % 2;
+    let first_bits_lat = [true, false].iter().cycle().skip(first_bit_lat);
 
     let values = lowercased
         .chars()
         .map(GeohashB32::try_from)
-        .enumerate()
-        .map(|(index, geohash)| geohash.map(|gh| gh.get_lat_lng_bit_values(index % 2 == offset)))
+        .zip(first_bits_lat)
+        .map(|(geohash, first_bit_lat)| geohash.map(|gh| gh.get_lat_lng_bit_values(*first_bit_lat)))
         .fold(Ok((vec![], vec![])), |acc, curr| match (acc, curr) {
             (Err(e), _) | (_, Err(e)) => Err(e),
             (Ok((acc_lat, acc_lng)), Ok((curr_lat, curr_lng))) => {
