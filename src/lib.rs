@@ -10,7 +10,7 @@
 //! All corrdinates are always converted to the latitude and longitude float format
 
 /// Expose geohash implementation
-#[cfg(feature="parse_geohash")]
+#[cfg(feature = "parse_geohash")]
 pub mod geohash;
 
 #[cfg(feature = "parse_str_dd")]
@@ -48,9 +48,9 @@ impl Coordinate {
     }
 
     /// Try to parse a geohash
-    #[cfg(feature="parse_geohash")]
+    #[cfg(feature = "parse_geohash")]
     pub fn parse_geohash(hash: &str) -> Result<Self, CoordinateError> {
-      geohash::parse_geohash(hash)
+        geohash::parse_geohash(hash)
     }
 }
 
@@ -259,6 +259,11 @@ impl FromStr for Coordinate {
         #[cfg(feature = "parse_str_dms")]
         {
             result = result.or_else(|_| Self::parse_str_dms(str_coords));
+        }
+
+        #[cfg(feature = "parse_geohash")]
+        {
+            result = result.or_else(|_| geohash::parse_geohash(str_coords));
         }
 
         result
