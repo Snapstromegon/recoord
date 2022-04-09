@@ -9,6 +9,10 @@
 //!
 //! All corrdinates are always converted to the latitude and longitude float format
 
+/// Expose geohash implementation
+#[cfg(feature="parse_geohash")]
+pub mod geohash;
+
 #[cfg(feature = "parse_str_dd")]
 #[cfg(feature = "parse_str_dms")]
 use regex::Regex;
@@ -41,6 +45,12 @@ impl Coordinate {
     /// ```
     pub fn new(lat: f64, lng: f64) -> Self {
         Self { lat, lng }
+    }
+
+    /// Try to parse a geohash
+    #[cfg(feature="parse_geohash")]
+    pub fn parse_geohash(hash: &str) -> Result<Self, CoordinateError> {
+      geohash::parse_geohash(hash)
     }
 }
 
@@ -211,7 +221,7 @@ impl Coordinate {
                         },
                         match lat_sec {
                             None => None,
-                            Some(lat_min) => Some(lat_min.as_str().parse()?),
+                            Some(lat_sec) => Some(lat_sec.as_str().parse()?),
                         },
                     ),
                     lng: if CompassDirection::from(e_w.as_str()) == CompassDirection::East {
