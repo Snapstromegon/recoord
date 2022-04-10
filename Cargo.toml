@@ -19,7 +19,7 @@ reqwest = { version = "0.11", features = ["json", "rustls-tls"], optional = true
 tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
-default = ["parse_str_dd", "parse_str_dms", "parse_geohash", "resolve_osm"]
+default = ["parse_str_dd", "parse_str_dms", "parse_geohash"]
 parse_str_dd = ["dep:regex"]
 parse_str_dms = ["dep:regex"]
 parse_geohash = []
