@@ -13,13 +13,14 @@ categories = ["encoding", "parsing"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+thiserror = "1.0.30"
 regex = { version = "1.5", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 reqwest = { version = "0.11", features = ["json", "rustls-tls"], optional = true }
 tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
-default = ["parse_str_dd", "parse_str_dms", "parse_geohash"]
+default = ["parse_str_dd", "parse_str_dms", "parse_geohash", "resolve_osm"]
 parse_str_dd = ["dep:regex"]
 parse_str_dms = ["dep:regex"]
 parse_geohash = []

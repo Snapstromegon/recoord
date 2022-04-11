@@ -9,10 +9,14 @@
 //!
 //! All corrdinates are always converted to the latitude and longitude float format
 
+#[cfg(feature = "parse_str_dms")]
+mod compass;
 /// Expose geohash implementation
 #[cfg(feature = "parse_geohash")]
 pub mod geohash;
 
+#[cfg(feature = "parse_str_dms")]
+use compass::CompassDirection;
 #[cfg(feature = "parse_str_dd")]
 #[cfg(feature = "parse_str_dms")]
 use regex::Regex;
@@ -21,6 +25,8 @@ use serde::Deserialize;
 #[cfg(feature = "parse_str_dd")]
 #[cfg(feature = "parse_str_dms")]
 use std::num::ParseFloatError;
+use thiserror::Error;
+
 use std::{fmt, str::FromStr};
 
 /// The base coordinate struct.
@@ -61,42 +67,35 @@ impl fmt::Display for Coordinate {
 }
 
 /// Error when handling coordinates
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum CoordinateError {
     /// No parser available - enable them via features
+    #[error("No parser available - enable them via features")]
     MissingParser,
-    /// A coordinate has an invalid value
+    /// Value can't be converted into a coordinate
+    #[error("Value can't be converted into a coordinate")]
     InvalidValue,
     /// String passed into from_str was malformed
     #[cfg(feature = "parse_str_dd")]
     #[cfg(feature = "parse_str_dms")]
+    #[error("String passed into from_str was malformed")]
     Malformed,
     /// String passed into from_str contained invalid floats
     #[cfg(feature = "parse_str_dd")]
     #[cfg(feature = "parse_str_dms")]
-    ParseFloatError(ParseFloatError),
-    /// Location is not resolvable by the resolver
+    #[error("String passed into from_str contained invalid floats")]
+    ParseFloatError(#[from] ParseFloatError),
+    /// Location not resolvable
     #[cfg(feature = "resolve_osm")]
+    #[error("Location not resolvable")]
     Unresolveable,
     /// There was a problem connecting to the API
     #[cfg(feature = "resolve_osm")]
-    ReqwestError(reqwest::Error),
+    #[error("There was a problem connecting to the API")]
+    ReqwestError(#[from] reqwest::Error)
+
 }
 
-#[cfg(feature = "parse_str_dd")]
-#[cfg(feature = "parse_str_dms")]
-impl From<ParseFloatError> for CoordinateError {
-    fn from(err: ParseFloatError) -> Self {
-        Self::ParseFloatError(err)
-    }
-}
-
-#[cfg(feature = "resolve_osm")]
-impl From<reqwest::Error> for CoordinateError {
-    fn from(err: reqwest::Error) -> Self {
-        Self::ReqwestError(err)
-    }
-}
 
 impl TryFrom<(f64, f64)> for Coordinate {
     type Error = CoordinateError;
@@ -145,33 +144,6 @@ impl Coordinate {
             }
         }
         Err(CoordinateError::Malformed)
-    }
-}
-
-/// Possible compass directions
-#[derive(PartialEq, Eq)]
-#[cfg(feature = "parse_str_dms")]
-enum CompassDirection {
-    /// North
-    North,
-    /// East
-    East,
-    /// South
-    South,
-    /// West
-    West,
-}
-
-#[cfg(feature = "parse_str_dms")]
-impl From<&str> for CompassDirection {
-    fn from(dir: &str) -> Self {
-        match &dir.to_uppercase()[..] {
-            "N" | "NORTH" => CompassDirection::North,
-            "E" | "EAST" => CompassDirection::East,
-            "S" | "SOUTH" => CompassDirection::South,
-            "W" | "WEST" => CompassDirection::West,
-            _ => unreachable!(),
-        }
     }
 }
 
