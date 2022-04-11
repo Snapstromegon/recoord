@@ -1,11 +1,43 @@
 use crate::{Coordinate, CoordinateError};
 
-/// The geohash alphabet for mapping hash chars to values (index is value)
-const GEOHASH_BASE32_ALPHABET: &str = "0123456789bcdefghjkmnpqrstuvwxyz";
 
 /// A geohash character
+///
+/// The geohash alphabet for mapping hash chars to values (index is value)
+/// 01234 56789 bcdef ghjkm npqrs tuvwx yz
 #[derive(Debug)]
 struct GeohashB32(u8);
+
+impl TryFrom<char> for GeohashB32 {
+    type Error = CoordinateError;
+    fn try_from(c: char) -> Result<Self, Self::Error> {
+        Ok(GeohashB32(match c.to_ascii_lowercase() {
+            '0'..='9' => c as u32 - '0' as u32,
+            'a' => return Err(Self::Error::InvalidValue),
+            'b'..='h' => c as u32 - 'b' as u32 + 10,
+            'i' => return Err(Self::Error::InvalidValue),
+            'j' | 'k' => c as u32 - 'j' as u32 + 17,
+            'l' => return Err(Self::Error::InvalidValue),
+            'm' | 'n' => c as u32 - 'm' as u32 + 19,
+            'o' => return Err(Self::Error::InvalidValue),
+            'p'..='z' => c as u32 - 'p' as u32 + 21,
+            _ => return Err(Self::Error::InvalidValue),
+        } as u8))
+    }
+}
+
+impl From<GeohashB32> for char {
+    fn from(ghb: GeohashB32) -> char {
+        match ghb.0 {
+            0..=9 => char::from_digit(ghb.0 as u32, 10).unwrap(),
+            10..=17 => ('b' as u8 + ghb.0 - 10) as char,
+            18..=19 => ('j' as u8 + ghb.0 - 18) as char,
+            20..=21 => ('m' as u8 + ghb.0 - 20) as char,
+            22..=32 => ('p' as u8 + ghb.0 - 22) as char,
+            _ => unreachable!()
+        }
+    }
+}
 
 impl GeohashB32 {
     /// Get the values of the even bits in the char
@@ -38,15 +70,15 @@ impl GeohashB32 {
     }
 }
 
-impl TryFrom<char> for GeohashB32 {
-    type Error = CoordinateError;
-    fn try_from(c: char) -> Result<Self, Self::Error> {
-        GEOHASH_BASE32_ALPHABET
-            .chars()
-            .position(|char| char == c)
-            .map_or(Err(Self::Error::Malformed), |pos| Ok(Self(pos as u8)))
-    }
-}
+// impl TryFrom<char> for GeohashB32 {
+//     type Error = CoordinateError;
+//     fn try_from(c: char) -> Result<Self, Self::Error> {
+//         GEOHASH_BASE32_ALPHABET
+//             .chars()
+//             .position(|char| char == c)
+//             .map_or(Err(Self::Error::Malformed), |pos| Ok(Self(pos as u8)))
+//     }
+// }
 
 /// Parse a provided geohash
 ///

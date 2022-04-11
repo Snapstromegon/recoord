@@ -9,25 +9,18 @@
 //!
 //! All corrdinates are always converted to the latitude and longitude float format
 
+use std::{
+    fmt,
+    fmt::{Display, Formatter},
+    num::ParseFloatError,
+};
+mod formats;
+#[cfg(feature = "parse_str_dd")]
+pub use formats::dd::DDCoordinate;
 #[cfg(feature = "parse_str_dms")]
-mod compass;
-/// Expose geohash implementation
-#[cfg(feature = "parse_geohash")]
-pub mod geohash;
+pub use formats::dms::DMSCoordinate;
 
-#[cfg(feature = "parse_str_dms")]
-use compass::CompassDirection;
-#[cfg(feature = "parse_str_dd")]
-#[cfg(feature = "parse_str_dms")]
-use regex::Regex;
-#[cfg(feature = "resolve_osm")]
-use serde::Deserialize;
-#[cfg(feature = "parse_str_dd")]
-#[cfg(feature = "parse_str_dms")]
-use std::num::ParseFloatError;
 use thiserror::Error;
-
-use std::{fmt, str::FromStr};
 
 /// The base coordinate struct.
 /// It stores the location as latitude, longitude floats
@@ -52,16 +45,10 @@ impl Coordinate {
     pub fn new(lat: f64, lng: f64) -> Self {
         Self { lat, lng }
     }
-
-    /// Try to parse a geohash
-    #[cfg(feature = "parse_geohash")]
-    pub fn parse_geohash(hash: &str) -> Result<Self, CoordinateError> {
-        geohash::parse_geohash(hash)
-    }
 }
 
-impl fmt::Display for Coordinate {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+impl Display for Coordinate {
+    fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         write!(f, "{},{}", self.lat, self.lng)
     }
 }
@@ -92,10 +79,8 @@ pub enum CoordinateError {
     /// There was a problem connecting to the API
     #[cfg(feature = "resolve_osm")]
     #[error("There was a problem connecting to the API")]
-    ReqwestError(#[from] reqwest::Error)
-
+    ReqwestError(#[from] reqwest::Error),
 }
-
 
 impl TryFrom<(f64, f64)> for Coordinate {
     type Error = CoordinateError;
@@ -124,186 +109,35 @@ impl TryFrom<(f64, f64)> for Coordinate {
     }
 }
 
-#[cfg(feature = "parse_str_dd")]
-impl Coordinate {
-    /// Parse a Coordinate from a string in the format "<lat: f64>,<lng: f64>"
-    fn parse_str_dd(str_coords: &str) -> Result<Self, CoordinateError> {
-        let trans_str_coords = str_coords.to_uppercase();
-        let trans_str_coords = trans_str_coords.trim();
-        let decimal_coords_re =
-            Regex::new(r"^(?P<lat>[+-]?\d+(\.\d+)?)\s*[,\./]\s*(?P<lng>[+-]?\d+(\.\d+)?)$")
-                .unwrap();
-        let re_captures = decimal_coords_re.captures(trans_str_coords);
+// #[cfg(test)]
+// mod tests {
+//     #[cfg(feature = "parse_str_dd")]
+//     #[test]
+//     fn parse_str_dd_integer() {
+//         use crate::Coordinate;
 
-        if let Some(captures) = re_captures {
-            if let (Some(lng), Some(lat)) = (captures.name("lng"), captures.name("lat")) {
-                return Ok(Coordinate {
-                    lng: lng.as_str().parse()?,
-                    lat: lat.as_str().parse()?,
-                });
-            }
-        }
-        Err(CoordinateError::Malformed)
-    }
-}
+//         let expected = Coordinate { lat: 10., lng: 20. };
+//         let real = Coordinate::parse_str_dd("10,20").unwrap();
+//         assert_eq!(expected, real);
+//     }
+//     #[cfg(feature = "parse_str_dd")]
+//     #[test]
+//     fn parse_str_dd_float() {
+//         use crate::Coordinate;
 
-#[cfg(feature = "parse_str_dms")]
-impl Coordinate {
-    /// Convert a sexagesimal coordinate to a decimal one.
-    fn sexagesimal_to_decimal(degree: f64, minutes: Option<f64>, seconds: Option<f64>) -> f64 {
-        degree + minutes.unwrap_or(0.) / 60. + seconds.unwrap_or(0.) / 60. / 60.
-    }
+//         let expected = Coordinate { lat: 10., lng: 20. };
+//         let real = Coordinate::parse_str_dd("10.0,20.0").unwrap();
+//         assert_eq!(expected, real);
+//     }
+//     #[cfg(feature = "parse_str_dd")]
+//     #[test]
+//     fn parse_str_dd_invalid() {
+//         use crate::{Coordinate, CoordinateError};
 
-    /// Parse a Coordinate from a string in the format "<lat: f64>,<lng: f64>"
-    fn parse_str_dms(str_coords: &str) -> Result<Self, CoordinateError> {
-        let trans_str_coords = str_coords.to_uppercase();
-        let trans_str_coords = trans_str_coords.trim();
-        let long_lat_re = Regex::new("^(?P<lat_deg>\\d+(\\.\\d+)?)°((?P<lat_min>\\d+(\\.\\d+)?)')?((?P<lat_sec>\\d+(\\.\\d+)?)\"?)(?P<n_s>[NS])\\s*(?P<long_deg>\\d+(\\.\\d+)?)°((?P<long_min>\\d+(\\.\\d+)?)')?((?P<long_sec>\\d+(\\.\\d+)?)\")?(?P<e_w>[EW])$").unwrap();
-        let re_captures = long_lat_re.captures(trans_str_coords);
-        if let Some(captures) = re_captures {
-            if let (
-                Some(lat_deg),
-                lat_min,
-                lat_sec,
-                Some(n_s),
-                Some(long_deg),
-                long_min,
-                long_sec,
-                Some(e_w),
-            ) = (
-                captures.name("lat_deg"),
-                captures.name("lat_min"),
-                captures.name("lat_sec"),
-                captures.name("n_s"),
-                captures.name("long_deg"),
-                captures.name("long_min"),
-                captures.name("long_sec"),
-                captures.name("e_w"),
-            ) {
-                return Ok(Coordinate {
-                    lat: if CompassDirection::from(n_s.as_str()) == CompassDirection::North {
-                        1.
-                    } else {
-                        -1.
-                    } * Coordinate::sexagesimal_to_decimal(
-                        lat_deg.as_str().parse()?,
-                        match lat_min {
-                            None => None,
-                            Some(lat_min) => Some(lat_min.as_str().parse()?),
-                        },
-                        match lat_sec {
-                            None => None,
-                            Some(lat_sec) => Some(lat_sec.as_str().parse()?),
-                        },
-                    ),
-                    lng: if CompassDirection::from(e_w.as_str()) == CompassDirection::East {
-                        1.
-                    } else {
-                        -1.
-                    } * Coordinate::sexagesimal_to_decimal(
-                        long_deg.as_str().parse()?,
-                        match long_min {
-                            None => None,
-                            Some(long_min) => Some(long_min.as_str().parse()?),
-                        },
-                        match long_sec {
-                            None => None,
-                            Some(long_min) => Some(long_min.as_str().parse()?),
-                        },
-                    ),
-                });
-            }
-        }
-        Err(CoordinateError::Malformed)
-    }
-}
-
-impl FromStr for Coordinate {
-    type Err = CoordinateError;
-
-    fn from_str(str_coords: &str) -> Result<Self, Self::Err> {
-        let mut result = Err(CoordinateError::MissingParser);
-
-        #[cfg(feature = "parse_str_dd")]
-        {
-            result = result.or_else(|_| Self::parse_str_dd(str_coords));
-        }
-        #[cfg(feature = "parse_str_dms")]
-        {
-            result = result.or_else(|_| Self::parse_str_dms(str_coords));
-        }
-
-        #[cfg(feature = "parse_geohash")]
-        {
-            result = result.or_else(|_| geohash::parse_geohash(str_coords));
-        }
-
-        result
-    }
-}
-
-/// Location of Open Street Maps
-#[cfg(feature = "resolve_osm")]
-#[derive(Deserialize)]
-struct OSMLocation {
-    /// Latitude
-    lat: String,
-    /// Longitude
-    lon: String,
-}
-
-#[cfg(feature = "resolve_osm")]
-impl Coordinate {
-    /// Resolve a location using the Nominatim Openstreetmap API
-    pub async fn resolve_oms(location: &str) -> Result<Self, CoordinateError> {
-        let locations = reqwest::Client::new()
-            .get("https://nominatim.openstreetmap.org/search")
-            .header(reqwest::header::USER_AGENT, "tanker_price")
-            .query(&[("format", "json"), ("q", location)])
-            .send()
-            .await?
-            .json::<Vec<OSMLocation>>()
-            .await?;
-        if let Some(location) = locations.get(0) {
-            Ok(Coordinate {
-                lng: location.lon.parse()?,
-                lat: location.lat.parse()?,
-            })
-        } else {
-            Err(CoordinateError::Unresolveable)
-        }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    #[cfg(feature = "parse_str_dd")]
-    #[test]
-    fn parse_str_dd_integer() {
-        use crate::Coordinate;
-
-        let expected = Coordinate { lat: 10., lng: 20. };
-        let real = Coordinate::parse_str_dd("10,20").unwrap();
-        assert_eq!(expected, real);
-    }
-    #[cfg(feature = "parse_str_dd")]
-    #[test]
-    fn parse_str_dd_float() {
-        use crate::Coordinate;
-
-        let expected = Coordinate { lat: 10., lng: 20. };
-        let real = Coordinate::parse_str_dd("10.0,20.0").unwrap();
-        assert_eq!(expected, real);
-    }
-    #[cfg(feature = "parse_str_dd")]
-    #[test]
-    fn parse_str_dd_invalid() {
-        use crate::{Coordinate, CoordinateError};
-
-        match Coordinate::parse_str_dd("Asd,20.0") {
-            Err(CoordinateError::Malformed) => {}
-            Err(_) => panic!("Wrong Error"),
-            Ok(_) => panic!("Should've failed"),
-        }
-    }
-}
+//         match Coordinate::parse_str_dd("Asd,20.0") {
+//             Err(CoordinateError::Malformed) => {}
+//             Err(_) => panic!("Wrong Error"),
+//             Ok(_) => panic!("Should've failed"),
+//         }
+//     }
+// }
