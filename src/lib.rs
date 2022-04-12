@@ -14,16 +14,22 @@ use std::{
     fmt::{Display, Formatter},
     num::ParseFloatError,
 };
-mod formats;
-#[cfg(feature = "parse_str_dd")]
-pub use formats::dd::DDCoordinate;
-#[cfg(feature = "parse_str_dms")]
-pub use formats::dms::DMSCoordinate;
+/// A wrapper around different coordinate formats
+pub mod formats;
+
+/// A wrapper around differend resolvers for Coordinates
+pub mod resolvers;
+
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use thiserror::Error;
 
 /// The base coordinate struct.
 /// It stores the location as latitude, longitude floats
+/// 
+#[cfg(feature = "serde")]
+#[derive(Serialize, Deserialize)]
 #[derive(Debug, Clone, PartialEq)]
 pub struct Coordinate {
     /// Longitude of the coordinate (-90 - 90)
@@ -63,13 +69,13 @@ pub enum CoordinateError {
     #[error("Value can't be converted into a coordinate")]
     InvalidValue,
     /// String passed into from_str was malformed
-    #[cfg(feature = "parse_str_dd")]
-    #[cfg(feature = "parse_str_dms")]
+    #[cfg(feature = "format_dd")]
+    #[cfg(feature = "format_dms")]
     #[error("String passed into from_str was malformed")]
     Malformed,
     /// String passed into from_str contained invalid floats
-    #[cfg(feature = "parse_str_dd")]
-    #[cfg(feature = "parse_str_dms")]
+    #[cfg(feature = "format_dd")]
+    #[cfg(feature = "format_dms")]
     #[error("String passed into from_str contained invalid floats")]
     ParseFloatError(#[from] ParseFloatError),
     /// Location not resolvable
@@ -90,14 +96,14 @@ impl TryFrom<(f64, f64)> for Coordinate {
     /// /// Parsing works
     /// # use recoord::Coordinate;
     /// let from = Coordinate::try_from((10., 20.));
-    /// assert_eq!(Ok(Coordinate { lat: 10.0, lng: 20.0}), from);
+    /// assert_eq!(Coordinate { lat: 10.0, lng: 20.0}, from.unwrap());
     /// ```
     ///
     /// ```
     /// /// Detect invalid values
     /// # use recoord::{Coordinate, CoordinateError};
     /// let from = Coordinate::try_from((100., 20.));
-    /// assert_eq!(Err(CoordinateError::InvalidValue), from);
+    /// assert!(from.is_err());
     /// ```
     fn try_from(tupl_coord: (f64, f64)) -> Result<Self, Self::Error> {
         match tupl_coord {
@@ -109,32 +115,38 @@ impl TryFrom<(f64, f64)> for Coordinate {
     }
 }
 
+// /// Resolver for strings to Coordinates - this should be used for more expensive (and async) resolving
+// pub trait Resolver {
+//     /// Resolve a &str to a Coordinate
+//     fn resolve(s: &str) -> std::pin::Pin<Box<dyn std::future::Future<Output = Result<Coordinate, CoordinateError>> + Send + '_>>;
+// }
+
 // #[cfg(test)]
 // mod tests {
-//     #[cfg(feature = "parse_str_dd")]
+//     #[cfg(feature = "format_dd")]
 //     #[test]
-//     fn parse_str_dd_integer() {
+//     fn format_dd_integer() {
 //         use crate::Coordinate;
 
 //         let expected = Coordinate { lat: 10., lng: 20. };
-//         let real = Coordinate::parse_str_dd("10,20").unwrap();
+//         let real = Coordinate::format_dd("10,20").unwrap();
 //         assert_eq!(expected, real);
 //     }
-//     #[cfg(feature = "parse_str_dd")]
+//     #[cfg(feature = "format_dd")]
 //     #[test]
-//     fn parse_str_dd_float() {
+//     fn format_dd_float() {
 //         use crate::Coordinate;
 
 //         let expected = Coordinate { lat: 10., lng: 20. };
-//         let real = Coordinate::parse_str_dd("10.0,20.0").unwrap();
+//         let real = Coordinate::format_dd("10.0,20.0").unwrap();
 //         assert_eq!(expected, real);
 //     }
-//     #[cfg(feature = "parse_str_dd")]
+//     #[cfg(feature = "format_dd")]
 //     #[test]
-//     fn parse_str_dd_invalid() {
+//     fn format_dd_invalid() {
 //         use crate::{Coordinate, CoordinateError};
 
-//         match Coordinate::parse_str_dd("Asd,20.0") {
+//         match Coordinate::format_dd("Asd,20.0") {
 //             Err(CoordinateError::Malformed) => {}
 //             Err(_) => panic!("Wrong Error"),
 //             Ok(_) => panic!("Should've failed"),

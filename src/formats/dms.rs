@@ -1,11 +1,17 @@
-use std::str::FromStr;
+use core::fmt;
+use std::{fmt::Display, str::FromStr};
 
 use crate::{Coordinate, CoordinateError};
 use regex::Regex;
 
+/// Compass Direction on the horizontal axis
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy)]
 enum CompassHorizontalDirection {
+    /// Direction west
     West,
+    /// Direction East
     East,
 }
 
@@ -39,9 +45,14 @@ impl From<f64> for CompassHorizontalDirection {
     }
 }
 
+/// Compass Direction on the vertical axis
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
 #[derive(Clone, Copy)]
 enum CompassVerticalDirection {
+    /// Direction North
     North,
+    /// Direction South
     South,
 }
 
@@ -74,10 +85,15 @@ impl From<f64> for CompassVerticalDirection {
         }
     }
 }
-
+/// A Degree, Minute, Second unit for dms coordinates
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
 struct DMSUnit {
+    /// Degrees of the unit
     degrees: f64,
+    /// Minutes of the unit
     minutes: f64,
+    /// Seconds of the unit
     seconds: f64,
 }
 
@@ -99,8 +115,12 @@ impl From<f64> for DMSUnit {
 
 /// A Coordinate in the floating point representation
 /// (e.g. 12.345,6.789)
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct DMSCoordinate {
+    /// Position on the east_west / horizontal axis
     east_west: (DMSUnit, CompassHorizontalDirection),
+    /// Position on the north_south / vertical axis
     north_south: (DMSUnit, CompassVerticalDirection),
 }
 
@@ -136,10 +156,10 @@ impl FromStr for DMSCoordinate {
                         DMSUnit {
                             degrees: lat_deg.as_str().parse()?,
                             minutes: lat_min
-                                .and_then(|lat_min| Some(lat_min.as_str().parse()))
+                                .map(|lat_min| lat_min.as_str().parse())
                                 .unwrap_or(Ok(0.0))?,
                             seconds: lat_sec
-                                .and_then(|lat_sec| Some(lat_sec.as_str().parse()))
+                                .map(|lat_sec| lat_sec.as_str().parse())
                                 .unwrap_or(Ok(0.0))?,
                         },
                         CompassVerticalDirection::try_from(n_s.as_str())?,
@@ -148,10 +168,10 @@ impl FromStr for DMSCoordinate {
                         DMSUnit {
                             degrees: lng_deg.as_str().parse()?,
                             minutes: lng_min
-                                .and_then(|lng_min| Some(lng_min.as_str().parse()))
+                                .map(|lng_min| lng_min.as_str().parse())
                                 .unwrap_or(Ok(0.0))?,
                             seconds: lng_sec
-                                .and_then(|lng_sec| Some(lng_sec.as_str().parse()))
+                                .map(|lng_sec| lng_sec.as_str().parse())
                                 .unwrap_or(Ok(0.0))?,
                         },
                         CompassHorizontalDirection::try_from(e_w.as_str())?,
@@ -163,8 +183,8 @@ impl FromStr for DMSCoordinate {
     }
 }
 
-impl ToString for DMSCoordinate {
-    fn to_string(&self) -> String {
+impl Display for DMSCoordinate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let lat_deg = self.north_south.0.degrees.abs().to_string() + "°";
         let lat_min = if self.north_south.0.minutes == 0. {
             "".to_string()
@@ -187,7 +207,8 @@ impl ToString for DMSCoordinate {
         } else {
             self.east_west.0.seconds.to_string() + "'"
         };
-        format!(
+        write!(
+            f,
             "{}{}{}{},{}{}{}{}",
             lat_deg,
             lat_min,

@@ -1,12 +1,17 @@
-use std::str::FromStr;
+use core::fmt;
+use std::{fmt::Display, str::FromStr};
 
 use crate::{Coordinate, CoordinateError};
 use regex::Regex;
 
 /// A Coordinate in the floating point representation
 /// (e.g. 12.345,6.789)
+#[cfg(feature = "serde")]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct DDCoordinate {
+    /// Latitude of the Coordinate
     lat: f64,
+    /// Longitude of the coordinate
     lng: f64,
 }
 
@@ -32,9 +37,9 @@ impl FromStr for DDCoordinate {
     }
 }
 
-impl ToString for DDCoordinate {
-    fn to_string(&self) -> String {
-        format!("{}.{}", self.lat, self.lng)
+impl Display for DDCoordinate {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}.{}", self.lat, self.lng)
     }
 }
 
