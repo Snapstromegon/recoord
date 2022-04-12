@@ -13,6 +13,7 @@ use std::{
     fmt,
     fmt::{Display, Formatter},
     num::ParseFloatError,
+    str::FromStr,
 };
 /// A wrapper around different coordinate formats
 pub mod formats;
@@ -27,10 +28,9 @@ use thiserror::Error;
 
 /// The base coordinate struct.
 /// It stores the location as latitude, longitude floats
-/// 
+///
 #[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize)]
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Coordinate {
     /// Longitude of the coordinate (-90 - 90)
     pub lat: f64,
@@ -112,6 +112,33 @@ impl TryFrom<(f64, f64)> for Coordinate {
             }
             _ => Err(CoordinateError::InvalidValue),
         }
+    }
+}
+
+impl FromStr for Coordinate {
+    type Err = CoordinateError;
+
+    fn from_str(str_coords: &str) -> Result<Self, Self::Err> {
+        let mut result: Result<Coordinate, CoordinateError> = Err(CoordinateError::MissingParser);
+
+        #[cfg(feature = "format_dd")]
+        {
+            result = result
+                .or_else(|_| formats::dd::DDCoordinate::from_str(str_coords).map(Coordinate::from));
+        }
+        #[cfg(feature = "format_dms")]
+        {
+            result = result.or_else(|_| {
+                formats::dms::DMSCoordinate::from_str(str_coords).map(Coordinate::from)
+            });
+        }
+        #[cfg(feature = "format_geohash")]
+        {
+            result = result
+                .or_else(|_| formats::geohash::Geohash::from_str(str_coords).map(Coordinate::from));
+        }
+
+        result
     }
 }
 
