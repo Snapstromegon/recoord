@@ -92,6 +92,18 @@ impl FromStr for Geohash {
 
 impl Display for Geohash {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+
+        // Open Questions:
+        //  - Is this possible in a fairly (really) performant way (should be, I think)?
+        //  - Which precision should be used here?
+        //      - We could make it max precision (which might be actually fastest)
+        //      - Make best effort to shortening (what about not correctly aligned hashes) -> inner or outer bounds?
+        //  - Should there be an extra function to stringify a specific precision and inner/outer/most matching bounds?
+        //
+        // Personally I think it should return the shortest outer bound hash.
+        // This tends to return short hashes and guarantees to include the whole described region.
+        // Only downside is, that you loose precision
+
         let _center = self.center();
         let _accuracy = (
             (self.bounding_top_left.lat - self.bounding_bottom_right.lat) / 2.,
