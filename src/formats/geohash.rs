@@ -98,7 +98,7 @@ impl Display for Geohash {
             (self.bounding_bottom_right.lng - self.bounding_top_left.lng) / 2.,
         );
 
-        unimplemented!("Converting Geohashes to Strings is still pending - sorry")
+        todo!()
     }
 }
 
