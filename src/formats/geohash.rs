@@ -22,6 +22,51 @@ impl Geohash {
             lng: (self.bounding_top_left.lng + self.bounding_bottom_right.lng) / 2.,
         }
     }
+
+    fn min_chars_for_precision(bits: usize) -> usize {
+
+        /*
+            This is correct, since each char represents 5 bits.
+            Intuitively you would use n/5 for n bits, but this creatres an off by one error,
+            which is resolved by the -1 and +1.
+
+                        +-----------------------------+
+            Bits        | 1| 2| 3| 4| 5| 6| 7| 8| 9|10| 
+                        +-----------------------------+
+            Expected    | 1| 1| 1| 1| 1| 2| 2| 2| 2| 2| 
+                        +-----------------------------+
+            bits/5      | 0| 0| 0| 0| 1| 1| 1| 1| 1| 1| 
+            bits/5+1    | 1| 1| 1| 1| 2| 2| 2| 2| 2| 3| 
+            (bits-1)/5+1| 1| 1| 1| 1| 1| 2| 2| 2| 2| 2| 
+                        +-----------------------------+
+        */
+        (bits - 1) / 5 + 1
+    }
+
+    /// Create a hash string to a specific bits precision
+    pub fn hash_with_precision(&self, bits: usize) -> String {
+        self.hash_with_max_length(Geohash::min_chars_for_precision(bits))
+    }
+
+    /// Create a hash with a specified number of characters
+    pub fn hash_with_max_length(&self, _length: usize) -> String {
+        unimplemented!()
+    }
+
+    /// Create the smallest hash, that includes top_left and bottom_right
+    pub fn get_inner_hash(&self) -> String {
+        unimplemented!()
+    }
+
+    /// Create the largest hash, that does nto includes top_left and bottom_right
+    pub fn get_outer_hash(&self) -> String {
+        unimplemented!()
+    }
+
+    /// Create the hash that has the biggest match with the described area
+    pub fn get_closest_hash(&self) -> String {
+        unimplemented!()
+    }
 }
 
 impl Default for Geohash {
@@ -92,7 +137,6 @@ impl FromStr for Geohash {
 
 impl Display for Geohash {
     fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
-
         // Open Questions:
         //  - Is this possible in a fairly (really) performant way (should be, I think)?
         //  - Which precision should be used here?
