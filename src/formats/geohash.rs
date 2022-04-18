@@ -23,21 +23,30 @@ impl Geohash {
         }
     }
 
-    fn min_chars_for_precision(bits: usize) -> usize {
+    /// Height of the bounding rect
+    pub fn height(&self) -> f64 {
+        self.bounding_bottom_right.lat - self.bounding_top_left.lat
+    }
 
+    /// Width of the bounding rect
+    pub fn width(&self) -> f64 {
+        self.bounding_bottom_right.lng - self.bounding_top_left.lng
+    }
+
+    fn min_chars_for_precision(bits: usize) -> usize {
         /*
             This is correct, since each char represents 5 bits.
             Intuitively you would use n/5 for n bits, but this creatres an off by one error,
             which is resolved by the -1 and +1.
 
                         +-----------------------------+
-            Bits        | 1| 2| 3| 4| 5| 6| 7| 8| 9|10| 
+            Bits        | 1| 2| 3| 4| 5| 6| 7| 8| 9|10|
                         +-----------------------------+
-            Expected    | 1| 1| 1| 1| 1| 2| 2| 2| 2| 2| 
+            Expected    | 1| 1| 1| 1| 1| 2| 2| 2| 2| 2|
                         +-----------------------------+
-            bits/5      | 0| 0| 0| 0| 1| 1| 1| 1| 1| 1| 
-            bits/5+1    | 1| 1| 1| 1| 2| 2| 2| 2| 2| 3| 
-            (bits-1)/5+1| 1| 1| 1| 1| 1| 2| 2| 2| 2| 2| 
+            bits/5      | 0| 0| 0| 0| 1| 1| 1| 1| 1| 1|
+            bits/5+1    | 1| 1| 1| 1| 2| 2| 2| 2| 2| 3|
+            (bits-1)/5+1| 1| 1| 1| 1| 1| 2| 2| 2| 2| 2|
                         +-----------------------------+
         */
         (bits - 1) / 5 + 1
@@ -50,6 +59,15 @@ impl Geohash {
 
     /// Create a hash with a specified number of characters
     pub fn hash_with_max_length(&self, _length: usize) -> String {
+
+        let width_divisions = 360. / self.width();
+        let height_divisions = 180. / self.height();
+
+        let center = self.center();
+
+        let height_index = center.lat + 90. / height_divisions;
+        let width_index = center.lng + 180. / width_divisions;
+
         unimplemented!()
     }
 
