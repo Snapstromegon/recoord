@@ -57,16 +57,78 @@ impl Geohash {
         self.hash_with_max_length(Geohash::min_chars_for_precision(bits))
     }
 
+    fn _hash_with_bits(&self, lat_bits: usize, lng_bits: usize) -> Result<String, CoordinateError> {
+        let total_bits = lat_bits + lng_bits;
+        let char_count = total_bits / 5;
+        let is_first_bit_lat = char_count % 2 == 0;
+        let bits_fit_in_char = total_bits % 5 == 0;
+        let bits_correct_ratio = if total_bits % 10 == 0 {
+            lat_bits == lng_bits
+        } else {
+            lat_bits == lng_bits + 1
+        };
+        
+        if bits_fit_in_char && bits_correct_ratio {
+            let lat =
+                (self.center().lat * (2u64.pow(lat_bits as u32) as f64) / 180.).round() as usize;
+            let lng =
+                (self.center().lng * (2u64.pow(lng_bits as u32) as f64) / 360.).round() as usize;
+
+            let lat_bits = (0..lat_bits)
+                .rev()
+                .map(|i| (lat >> i) & 0b1)
+                .collect::<Vec<usize>>()
+                .into_iter();
+            let lng_bits = (0..lng_bits)
+                .rev()
+                .map(|i| (lng >> i) & 0b1)
+                .collect::<Vec<usize>>()
+                .into_iter();
+
+            // let is_lat = [is_first_bit_lat, !is_first_bit_lat];
+            // let is_lat = is_lat.into_iter().cycle();
+
+            let (odd_bits, even_bits) = if is_first_bit_lat {
+                (lat_bits, lng_bits)
+            } else {
+                (lng_bits, lat_bits)
+            };
+
+            let all_bits: Vec<usize> = odd_bits
+                .zip(even_bits)
+                .map(|(a, b)| [a, b])
+                .flatten()
+                // .zip(is_lat)
+                .collect();
+
+            let mut res = "".to_string();
+
+            for chunk in all_bits.chunks(5) {
+                let mut byte = 0;
+                for (i, value) in chunk.into_iter().enumerate() {
+                    byte |= value << (4 - i);
+                }
+                res.push(char::try_from(GeohashB32(byte as u8))?);
+            }
+
+            Ok(res)
+        } else {
+            Err(CoordinateError::Malformed)
+        }
+    }
+
     /// Create a hash with a specified number of characters
     pub fn hash_with_max_length(&self, _length: usize) -> String {
+        // let width_divisions = 360. / self.width();
+        // let height_divisions = 180. / self.height();
 
-        let width_divisions = 360. / self.width();
-        let height_divisions = 180. / self.height();
+        // let width_bits = width_divisions.log2();
+        // let height_bits = height_divisions.log2();
 
-        let center = self.center();
+        // let center = self.center();
 
-        let height_index = center.lat + 90. / height_divisions;
-        let width_index = center.lng + 180. / width_divisions;
+        // let height_index = center.lat + 90. / height_divisions;
+        // let width_index = center.lng + 180. / width_divisions;
 
         unimplemented!()
     }
@@ -201,15 +263,29 @@ impl TryFrom<char> for GeohashB32 {
     }
 }
 
-impl From<GeohashB32> for char {
-    fn from(ghb: GeohashB32) -> char {
-        match ghb.0 {
+// impl From<GeohashB32> for char {
+//     fn from(ghb: GeohashB32) -> char {
+//         match ghb.0 {
+//             0..=9 => char::from_digit(ghb.0 as u32, 10).unwrap(),
+//             10..=17 => (b'b' + ghb.0 - 10) as char,
+//             18..=19 => (b'j' + ghb.0 - 18) as char,
+//             20..=21 => (b'm' + ghb.0 - 20) as char,
+//             22..=32 => (b'p' + ghb.0 - 22) as char,
+//             _ => unreachable!(),
+//         }
+//     }
+// }
+
+impl TryFrom<GeohashB32> for char {
+    type Error = CoordinateError;
+    fn try_from(ghb: GeohashB32) -> Result<char, Self::Error> {
+        Ok(match ghb.0 {
             0..=9 => char::from_digit(ghb.0 as u32, 10).unwrap(),
             10..=17 => (b'b' + ghb.0 - 10) as char,
             18..=19 => (b'j' + ghb.0 - 18) as char,
             20..=21 => (b'm' + ghb.0 - 20) as char,
             22..=32 => (b'p' + ghb.0 - 22) as char,
-            _ => unreachable!(),
-        }
+            _ => return Err(Self::Error::InvalidValue),
+        })
     }
 }
