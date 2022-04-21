@@ -1,6 +1,6 @@
 [package]
 name = "recoord"
-version = "0.2.1"
+version = "0.2.2"
 authors = ["Snapstromegon"]
 edition = "2021"
 description = "Handle coordinates in different formats."
@@ -26,15 +26,19 @@ thiserror = "1.0.30"
 tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
+all = ["format_all", "resolve_all"]
 default = []
+
 format_any = []
+format_all = ["format_dd", "format_dms", "format_geohash"]
 format_dd = ["dep:regex", "format_any"]
 format_dms = ["dep:regex", "format_any"]
 format_geohash = ["format_any"]
 serde = ["dep:serde"]
+resolve_all = ["resolve_osm"]
 resolve_osm = ["dep:reqwest", "dep:tokio", "dep:serde"]
 
 
 [package.metadata.cargo-all-features]
-denylist = ["serde", "format_any"]
+denylist = ["serde", "format_any", "format_all", "resolve_all"]
 skip_optional_dependencies = true
