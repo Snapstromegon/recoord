@@ -5,9 +5,8 @@ use crate::{Coordinate, CoordinateError};
 use regex::Regex;
 
 /// Compass Direction on the horizontal axis
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CompassHorizontalDirection {
     /// Direction west
     West,
@@ -46,9 +45,8 @@ impl From<f64> for CompassHorizontalDirection {
 }
 
 /// Compass Direction on the vertical axis
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
-#[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum CompassVerticalDirection {
     /// Direction North
     North,
@@ -86,8 +84,8 @@ impl From<f64> for CompassVerticalDirection {
     }
 }
 /// A Degree, Minute, Second unit for dms coordinates
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 struct DMSUnit {
     /// Degrees of the unit
     degrees: f64,
@@ -115,8 +113,8 @@ impl From<f64> for DMSUnit {
 
 /// A Coordinate in the floating point representation
 /// (e.g. 12.345,6.789)
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DMSCoordinate {
     /// Position on the east_west / horizontal axis
     east_west: (DMSUnit, CompassHorizontalDirection),

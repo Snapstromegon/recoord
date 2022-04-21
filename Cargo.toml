@@ -19,25 +19,21 @@ categories = ["encoding", "parsing"]
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-thiserror = "1.0.30"
 regex = { version = "1.5", optional = true }
+reqwest = { version = "0.11", features = ["json"], optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
-reqwest = { version = "0.11", features = [
-  "json",
-  "rustls-tls",
-], optional = true }
+thiserror = "1.0.30"
 tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
-default = [
-  "format_dd",
-  "format_dms",
-  "format_geohash",
-  "resolve_osm",
-  "serde"
-]
-format_dd = ["dep:regex"]
-format_dms = ["dep:regex"]
-format_geohash = []
+format_any = []
+format_dd = ["dep:regex", "format_any"]
+format_dms = ["dep:regex", "format_any"]
+format_geohash = ["format_any"]
 serde = ["dep:serde"]
 resolve_osm = ["dep:reqwest", "dep:tokio", "dep:serde"]
+
+
+[package.metadata.cargo-all-features]
+denylist = ["serde", "format_any"]
+skip_optional_dependencies = true

@@ -6,8 +6,8 @@ use regex::Regex;
 
 /// A Coordinate in the floating point representation
 /// (e.g. 12.345,6.789)
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct DDCoordinate {
     /// Latitude of the Coordinate
     lat: f64,

@@ -5,8 +5,8 @@ use crate::{Coordinate, CoordinateError};
 /// The Geohash allows you to describe a rect on the globa.
 /// It's made up by the top left and bottom right corner of the bounding rect.
 /// If you want to know the center, use the center() function.
-#[cfg(feature = "serde")]
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Geohash {
     /// Top left bounds of rect
     bounding_top_left: Coordinate,
@@ -45,8 +45,6 @@ impl Geohash {
     /// let c = h.center();
     /// println!("{c}");
     /// let s = h.hash_with_max_length(input.chars().count());
-    /// assert!(s.is_ok());
-    /// let s= s.unwrap();
     /// assert_eq!(s, input);
     /// ```
     pub fn hash_with_precision(&self, total_bits: usize) -> Result<String, CoordinateError> {

@@ -12,8 +12,6 @@
 use std::{
     fmt,
     fmt::{Display, Formatter},
-    num::ParseFloatError,
-    str::FromStr,
 };
 /// A wrapper around different coordinate formats
 pub mod formats;
@@ -24,13 +22,19 @@ pub mod resolvers;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "format_any")]
+use std::str::FromStr;
+
+#[cfg(any(feature = "format_dd", feature = "format_dms", feature = "resolve_osm"))]
+use std::num::ParseFloatError;
+
 use thiserror::Error;
 
 /// The base coordinate struct.
 /// It stores the location as latitude, longitude floats
 ///
-#[cfg(feature = "serde")]
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Coordinate {
     /// Longitude of the coordinate (-90 - 90)
     pub lat: f64,
@@ -69,13 +73,15 @@ pub enum CoordinateError {
     #[error("Value can't be converted into a coordinate")]
     InvalidValue,
     /// String passed into from_str was malformed
-    #[cfg(feature = "format_dd")]
-    #[cfg(feature = "format_dms")]
+    #[cfg(any(
+        feature = "format_dd",
+        feature = "format_dms",
+        feature = "format_geohash"
+    ))]
     #[error("String passed into from_str was malformed")]
     Malformed,
     /// String passed into from_str contained invalid floats
-    #[cfg(feature = "format_dd")]
-    #[cfg(feature = "format_dms")]
+    #[cfg(any(feature = "format_dd", feature = "format_dms", feature = "resolve_osm"))]
     #[error("String passed into from_str contained invalid floats")]
     ParseFloatError(#[from] ParseFloatError),
     /// Location not resolvable
@@ -115,6 +121,7 @@ impl TryFrom<(f64, f64)> for Coordinate {
     }
 }
 
+#[cfg(feature = "format_any")]
 impl FromStr for Coordinate {
     type Err = CoordinateError;
 
