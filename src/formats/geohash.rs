@@ -85,7 +85,8 @@ impl Geohash {
                 for (i, value) in chunk.iter().enumerate() {
                     byte |= value << (4 - i);
                 }
-                res.push(char::try_from(GeohashB32(byte as u8))?);
+                // We know at this point, that byte only container 5 bits and therefore is safe to unwrap
+                res.push(char::try_from(GeohashB32(byte as u8)).unwrap());
             }
 
             Ok(res)
@@ -95,12 +96,13 @@ impl Geohash {
     }
 
     /// Create a hash with a specified number of characters
-    pub fn hash_with_max_length(&self, length: usize) -> Result<String, CoordinateError> {
-        self.hash_with_precision(length * 5)
+    pub fn hash_with_max_length(&self, length: usize) -> String {
+        // The unwrap is safe, since we guarantee, that the length is a multiple of 5
+        self.hash_with_precision(length * 5).unwrap()
     }
 
     /// Create the smallest hash, that includes top_left and bottom_right
-    pub fn get_inner_hash(&self) -> Result<String, CoordinateError> {
+    pub fn get_inner_hash(&self) -> String {
         let lat_bits = (360. / self.height()).ceil() as usize
             - if self.crosses_vertical_chunks() { 1 } else { 0 };
         let lng_bits = (360. / self.width()).ceil() as usize
@@ -112,11 +114,12 @@ impl Geohash {
 
         let min_bits = lat_bits.max(lng_bits);
         let needed_bits = (((min_bits - 1) / 5) + 1) * 5;
-        self.hash_with_precision(needed_bits)
+        // The line above guarantees that needed_bits is a multiple of 5
+        self.hash_with_precision(needed_bits).unwrap()
     }
 
     /// Create the largest hash, that does nto includes top_left and bottom_right
-    pub fn get_outer_hash(&self) -> Result<String, CoordinateError> {
+    pub fn get_outer_hash(&self) -> String {
         let lat_bits = (360. / self.height()).floor() as usize
             - if self.crosses_vertical_chunks() { 1 } else { 0 };
         let lng_bits = (360. / self.width()).floor() as usize
@@ -128,13 +131,14 @@ impl Geohash {
 
         let max_bits = lat_bits.min(lng_bits);
         let needed_bits = (((max_bits + 1) / 5) - 1) * 5;
-        self.hash_with_precision(needed_bits)
+        // The line above guarantees that needed_bits is a multiple of 5
+        self.hash_with_precision(needed_bits).unwrap()
     }
 
-    /// Create the hash that has the biggest match with the described area
-    pub fn get_closest_hash(&self) -> Result<String, CoordinateError> {
-        unimplemented!()
-    }
+    // /// Create the hash that has the biggest match with the described area
+    // pub fn get_closest_hash(&self) -> Result<String, CoordinateError> {
+    //     unimplemented!()
+    // }
 
     fn crosses_horizontal_chunks(&self) -> bool {
         let left_cell = (self.bounding_top_left.lng / self.width()).floor() as usize;
@@ -225,7 +229,7 @@ impl FromStr for Geohash {
 }
 
 impl Display for Geohash {
-    fn fmt(&self, _f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         // Open Questions:
         //  - Is this possible in a fairly (really) performant way (should be, I think)?
         //  - Which precision should be used here?
@@ -237,13 +241,7 @@ impl Display for Geohash {
         // This tends to return short hashes and guarantees to include the whole described region.
         // Only downside is, that you loose precision
 
-        let _center = self.center();
-        let _accuracy = (
-            (self.bounding_top_left.lat - self.bounding_bottom_right.lat) / 2.,
-            (self.bounding_bottom_right.lng - self.bounding_top_left.lng) / 2.,
-        );
-
-        todo!()
+        write!(f, "{}", self.get_outer_hash())
     }
 }
 
@@ -319,8 +317,6 @@ mod tests {
             assert!(geohash.is_ok());
             let geohash = geohash.unwrap();
             let result = geohash.hash_with_max_length(1);
-            assert!(result.is_ok());
-            let result = result.unwrap();
             assert_eq!(result, expected.to_string());
         }
     }
@@ -336,8 +332,6 @@ mod tests {
             assert!(geohash.is_ok());
             let geohash = geohash.unwrap();
             let result = geohash.hash_with_max_length(hash.chars().count());
-            assert!(result.is_ok());
-            let result = result.unwrap();
             assert_eq!(result, hash);
         }
     }
