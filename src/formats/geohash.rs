@@ -33,79 +33,56 @@ impl Geohash {
         self.bounding_bottom_right.lng - self.bounding_top_left.lng
     }
 
-    fn min_chars_for_precision(bits: usize) -> usize {
-        /*
-            This is correct, since each char represents 5 bits.
-            Intuitively you would use n/5 for n bits, but this creatres an off by one error,
-            which is resolved by the -1 and +1.
-
-                        +-----------------------------+
-            Bits        | 1| 2| 3| 4| 5| 6| 7| 8| 9|10|
-                        +-----------------------------+
-            Expected    | 1| 1| 1| 1| 1| 2| 2| 2| 2| 2|
-                        +-----------------------------+
-            bits/5      | 0| 0| 0| 0| 1| 1| 1| 1| 1| 1|
-            bits/5+1    | 1| 1| 1| 1| 2| 2| 2| 2| 2| 3|
-            (bits-1)/5+1| 1| 1| 1| 1| 1| 2| 2| 2| 2| 2|
-                        +-----------------------------+
-        */
-        (bits - 1) / 5 + 1
-    }
-
-    /// Create a hash string to a specific bits precision
-    pub fn hash_with_precision(&self, bits: usize) -> String {
-        self.hash_with_max_length(Geohash::min_chars_for_precision(bits))
-    }
-
-    fn _hash_with_bits(&self, lat_bits: usize, lng_bits: usize) -> Result<String, CoordinateError> {
-        let total_bits = lat_bits + lng_bits;
-        let char_count = total_bits / 5;
-        let is_first_bit_lat = char_count % 2 == 0;
+    /// Encode a hash with a given precision in bits
+    ///
+    /// ```
+    /// # use recoord::formats::geohash::*;
+    /// let input = "1";
+    /// let h: Result<Geohash, _> = input.parse();
+    /// assert!(h.is_ok());
+    /// let h= h.unwrap();
+    /// println!("{h:?}");
+    /// let c = h.center();
+    /// println!("{c}");
+    /// let s = h.hash_with_max_length(input.chars().count());
+    /// assert!(s.is_ok());
+    /// let s= s.unwrap();
+    /// assert_eq!(s, input);
+    /// ```
+    pub fn hash_with_precision(&self, total_bits: usize) -> Result<String, CoordinateError> {
+        let lat_bits = total_bits / 2;
+        let lng_bits = total_bits / 2 + total_bits % 2;
         let bits_fit_in_char = total_bits % 5 == 0;
         let bits_correct_ratio = if total_bits % 10 == 0 {
             lat_bits == lng_bits
         } else {
-            lat_bits == lng_bits + 1
+            lat_bits == lng_bits - 1
         };
-        
+
         if bits_fit_in_char && bits_correct_ratio {
-            let lat =
-                (self.center().lat * (2u64.pow(lat_bits as u32) as f64) / 180.).round() as usize;
-            let lng =
-                (self.center().lng * (2u64.pow(lng_bits as u32) as f64) / 360.).round() as usize;
+            let cells_n_lat = 1usize << lat_bits;
+            let cells_n_lng = 1usize << lng_bits;
 
-            let lat_bits = (0..lat_bits)
-                .rev()
-                .map(|i| (lat >> i) & 0b1)
-                .collect::<Vec<usize>>()
-                .into_iter();
-            let lng_bits = (0..lng_bits)
-                .rev()
-                .map(|i| (lng >> i) & 0b1)
-                .collect::<Vec<usize>>()
-                .into_iter();
+            let lat = (90. + self.center().lat) / 180. * cells_n_lat as f64;
+            let lng = (180. + self.center().lng) / 360. * cells_n_lng as f64;
 
-            // let is_lat = [is_first_bit_lat, !is_first_bit_lat];
-            // let is_lat = is_lat.into_iter().cycle();
+            let lat = lat.floor() as usize;
+            let lng = lng.floor() as usize;
 
-            let (odd_bits, even_bits) = if is_first_bit_lat {
-                (lat_bits, lng_bits)
-            } else {
-                (lng_bits, lat_bits)
-            };
+            let lat_bits = (0..lat_bits).rev().map(|i| Some((lat >> i) & 0b1));
+            let lng_bits = (0..lng_bits).rev().map(|i| Some((lng >> i) & 0b1));
 
-            let all_bits: Vec<usize> = odd_bits
-                .zip(even_bits)
-                .map(|(a, b)| [a, b])
-                .flatten()
-                // .zip(is_lat)
+            let all_bits: Vec<usize> = lng_bits
+                .zip(lat_bits.chain(std::iter::repeat(None)))
+                .flat_map(|(a, b)| [a, b])
+                .map_while(|item| item)
                 .collect();
 
             let mut res = "".to_string();
 
             for chunk in all_bits.chunks(5) {
                 let mut byte = 0;
-                for (i, value) in chunk.into_iter().enumerate() {
+                for (i, value) in chunk.iter().enumerate() {
                     byte |= value << (4 - i);
                 }
                 res.push(char::try_from(GeohashB32(byte as u8))?);
@@ -118,34 +95,57 @@ impl Geohash {
     }
 
     /// Create a hash with a specified number of characters
-    pub fn hash_with_max_length(&self, _length: usize) -> String {
-        // let width_divisions = 360. / self.width();
-        // let height_divisions = 180. / self.height();
-
-        // let width_bits = width_divisions.log2();
-        // let height_bits = height_divisions.log2();
-
-        // let center = self.center();
-
-        // let height_index = center.lat + 90. / height_divisions;
-        // let width_index = center.lng + 180. / width_divisions;
-
-        unimplemented!()
+    pub fn hash_with_max_length(&self, length: usize) -> Result<String, CoordinateError> {
+        self.hash_with_precision(length * 5)
     }
 
     /// Create the smallest hash, that includes top_left and bottom_right
-    pub fn get_inner_hash(&self) -> String {
-        unimplemented!()
+    pub fn get_inner_hash(&self) -> Result<String, CoordinateError> {
+        let lat_bits = (360. / self.height()).ceil() as usize
+            - if self.crosses_vertical_chunks() { 1 } else { 0 };
+        let lng_bits = (360. / self.width()).ceil() as usize
+            - if self.crosses_horizontal_chunks() {
+                1
+            } else {
+                0
+            };
+
+        let min_bits = lat_bits.max(lng_bits);
+        let needed_bits = (((min_bits - 1) / 5) + 1) * 5;
+        self.hash_with_precision(needed_bits)
     }
 
     /// Create the largest hash, that does nto includes top_left and bottom_right
-    pub fn get_outer_hash(&self) -> String {
-        unimplemented!()
+    pub fn get_outer_hash(&self) -> Result<String, CoordinateError> {
+        let lat_bits = (360. / self.height()).floor() as usize
+            - if self.crosses_vertical_chunks() { 1 } else { 0 };
+        let lng_bits = (360. / self.width()).floor() as usize
+            - if self.crosses_horizontal_chunks() {
+                1
+            } else {
+                0
+            };
+
+        let max_bits = lat_bits.min(lng_bits);
+        let needed_bits = (((max_bits + 1) / 5) - 1) * 5;
+        self.hash_with_precision(needed_bits)
     }
 
     /// Create the hash that has the biggest match with the described area
-    pub fn get_closest_hash(&self) -> String {
+    pub fn get_closest_hash(&self) -> Result<String, CoordinateError> {
         unimplemented!()
+    }
+
+    fn crosses_horizontal_chunks(&self) -> bool {
+        let left_cell = (self.bounding_top_left.lng / self.width()).floor() as usize;
+        let right_cell = (self.bounding_bottom_right.lng / self.width()).floor() as usize;
+        left_cell == right_cell
+    }
+
+    fn crosses_vertical_chunks(&self) -> bool {
+        let top_cell = (self.bounding_top_left.lat / self.height()).floor() as usize;
+        let bottom_cell = (self.bounding_bottom_right.lat / self.height()).floor() as usize;
+        top_cell == bottom_cell
     }
 }
 
@@ -192,8 +192,7 @@ impl FromStr for Geohash {
     /// ```
     fn from_str(str_hash: &str) -> Result<Self, Self::Err> {
         let b32s = str_hash.chars().map(GeohashB32::try_from);
-        let first_bit_lat = str_hash.chars().count() % 2;
-        let first_bits_lat = [0, 1].iter().cycle().skip(first_bit_lat);
+        let first_bits_lat = [1, 0].iter().cycle();
 
         b32s.zip(first_bits_lat)
             .try_fold(Geohash::default(), |acc, (b32, first_bit_lat)| {
@@ -202,11 +201,21 @@ impl FromStr for Geohash {
                     for i in (0..=4).rev() {
                         let bit = (b32.0 >> i) & 0b1;
                         if (i + first_bit_lat) % 2 == 0 {
-                            res.bounding_top_left.lat /= 2. * bit as f64;
-                            res.bounding_bottom_right.lat /= 2. * bit as f64;
+                            let mid_lat =
+                                (res.bounding_top_left.lat + res.bounding_bottom_right.lat) / 2.;
+                            if bit == 0 {
+                                res.bounding_top_left.lat = mid_lat;
+                            } else {
+                                res.bounding_bottom_right.lat = mid_lat;
+                            }
                         } else {
-                            res.bounding_top_left.lng /= 2. * bit as f64;
-                            res.bounding_bottom_right.lng /= 2. * bit as f64;
+                            let mid_lng =
+                                (res.bounding_top_left.lng + res.bounding_bottom_right.lng) / 2.;
+                            if bit == 0 {
+                                res.bounding_bottom_right.lng = mid_lng;
+                            } else {
+                                res.bounding_top_left.lng = mid_lng;
+                            }
                         }
                     }
                     res
@@ -281,11 +290,75 @@ impl TryFrom<GeohashB32> for char {
     fn try_from(ghb: GeohashB32) -> Result<char, Self::Error> {
         Ok(match ghb.0 {
             0..=9 => char::from_digit(ghb.0 as u32, 10).unwrap(),
-            10..=17 => (b'b' + ghb.0 - 10) as char,
-            18..=19 => (b'j' + ghb.0 - 18) as char,
-            20..=21 => (b'm' + ghb.0 - 20) as char,
-            22..=32 => (b'p' + ghb.0 - 22) as char,
+            10..=16 => (b'b' + ghb.0 - 10) as char,
+            17..=18 => (b'j' + ghb.0 - 17) as char,
+            19..=20 => (b'm' + ghb.0 - 19) as char,
+            21..=32 => (b'p' + ghb.0 - 21) as char,
             _ => return Err(Self::Error::InvalidValue),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    // Note this useful idiom: importing names from outer (for mod tests) scope.
+    use super::*;
+    const ALPHABET: &str = "0123456789bcdefghjkmnpqrstuvwxyz";
+
+    #[test]
+    fn test_geohashb32_to_char() {
+        for (i, expected) in ALPHABET.chars().enumerate() {
+            assert_eq!(char::try_from(GeohashB32(i as u8)).unwrap(), expected);
+        }
+    }
+
+    #[test]
+    fn test_geohash_decode_encode() {
+        for expected in ALPHABET.chars() {
+            let geohash = Geohash::from_str(&expected.to_string());
+            assert!(geohash.is_ok());
+            let geohash = geohash.unwrap();
+            let result = geohash.hash_with_max_length(1);
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(result, expected.to_string());
+        }
+    }
+
+    #[test]
+    fn test_geohash_decode_encode_stresstest() {
+        let hashes = build_test_hash_with_length(2, None);
+        println!("hi {}", hashes.len());
+        for hash in hashes {
+            println!("Testing hash {hash}");
+            // std::io::stdout().flush().unwrap();
+            let geohash = Geohash::from_str(&hash);
+            assert!(geohash.is_ok());
+            let geohash = geohash.unwrap();
+            let result = geohash.hash_with_max_length(hash.chars().count());
+            assert!(result.is_ok());
+            let result = result.unwrap();
+            assert_eq!(result, hash);
+        }
+    }
+
+    fn build_test_hash_with_length(length: usize, per_depth: Option<usize>) -> Vec<String> {
+        match length {
+            0 => vec![],
+            1 => ALPHABET.chars().map(|c| c.to_string()).collect(),
+            _ => {
+                let sub_hashes = build_test_hash_with_length(length - 1, per_depth);
+                let mut res = vec![];
+                for possible in ALPHABET.chars().take(per_depth.unwrap_or(32)) {
+                    res.push(possible.to_string());
+                    for sub_hash in sub_hashes.iter() {
+                        let mut res_str = possible.to_string();
+                        res_str.push_str(&sub_hash);
+                        res.push(res_str);
+                    }
+                }
+                res
+            }
+        }
     }
 }
