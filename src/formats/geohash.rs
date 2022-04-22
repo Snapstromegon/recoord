@@ -247,24 +247,25 @@ impl Display for Geohash {
 ///
 /// The geohash alphabet for mapping hash chars to values (index is value)
 /// 01234 56789 bcdef ghjkm npqrs tuvwx yz
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 struct GeohashB32(u8);
 
 impl TryFrom<char> for GeohashB32 {
     type Error = CoordinateError;
     fn try_from(c: char) -> Result<Self, Self::Error> {
-        Ok(GeohashB32(match c.to_ascii_lowercase() {
-            '0'..='9' => c as u32 - '0' as u32,
-            'a' => return Err(Self::Error::InvalidValue),
-            'b'..='h' => c as u32 - 'b' as u32 + 10,
-            'i' => return Err(Self::Error::InvalidValue),
-            'j' | 'k' => c as u32 - 'j' as u32 + 17,
-            'l' => return Err(Self::Error::InvalidValue),
-            'm' | 'n' => c as u32 - 'm' as u32 + 19,
-            'o' => return Err(Self::Error::InvalidValue),
-            'p'..='z' => c as u32 - 'p' as u32 + 21,
+        let c = c.to_ascii_lowercase() as u8;
+        Ok(GeohashB32(match c {
+            b'0'..=b'9' => c - b'0',
+            b'a' => return Err(Self::Error::InvalidValue),
+            b'b'..=b'h' => c - b'b' + 10,
+            b'i' => return Err(Self::Error::InvalidValue),
+            b'j' | b'k' => c - b'j' + 17,
+            b'l' => return Err(Self::Error::InvalidValue),
+            b'm' | b'n' => c - b'm' + 19,
+            b'o' => return Err(Self::Error::InvalidValue),
+            b'p'..=b'z' => c - b'p' + 21,
             _ => return Err(Self::Error::InvalidValue),
-        } as u8))
+        }))
     }
 }
 
@@ -302,6 +303,20 @@ mod tests {
     const ALPHABET: &str = "0123456789bcdefghjkmnpqrstuvwxyz";
 
     #[test]
+    fn test_char_to_geohashb32() {
+        for (i, expected) in ALPHABET.chars().enumerate() {
+            assert_eq!(GeohashB32::try_from(expected).unwrap(), GeohashB32(i as u8));
+        }
+    }
+
+    #[test]
+    fn test_char_to_geohashb32_errors() {
+        assert!(GeohashB32::try_from('a').is_err());
+        assert!(GeohashB32::try_from('ö').is_err());
+        assert!(GeohashB32::try_from('💥').is_err());
+    }
+
+    #[test]
     fn test_geohashb32_to_char() {
         for (i, expected) in ALPHABET.chars().enumerate() {
             assert_eq!(char::try_from(GeohashB32(i as u8)).unwrap(), expected);
@@ -330,7 +345,7 @@ mod tests {
             assert!(geohash.is_ok());
             let geohash = geohash.unwrap();
             let result = geohash.hash_with_max_length(hash.chars().count());
-            assert_eq!(result, hash);
+            assert_eq!(result, hash); 
         }
     }
 
