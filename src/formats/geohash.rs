@@ -101,34 +101,44 @@ impl Geohash {
 
     /// Create the smallest hash, that includes top_left and bottom_right
     pub fn get_inner_hash(&self) -> String {
-        let lat_bits = (360. / self.height()).ceil() as usize
-            - if self.crosses_vertical_chunks() { 1 } else { 0 };
-        let lng_bits = (360. / self.width()).ceil() as usize
-            - if self.crosses_horizontal_chunks() {
-                1
-            } else {
-                0
-            };
+        let needed_bits = if self.height() == 0.0 || self.width() == 0.0 {
+            8 * 5
+        } else {
+            let lat_bits = (360. / self.height()).ceil() as usize
+                - if self.crosses_vertical_chunks() { 1 } else { 0 };
+            let lng_bits = (360. / self.width()).ceil() as usize
+                - if self.crosses_horizontal_chunks() {
+                    1
+                } else {
+                    0
+                };
 
-        let min_bits = lat_bits.max(lng_bits);
-        let needed_bits = (((min_bits - 1) / 5) + 1) * 5;
+            let min_bits = lat_bits.max(lng_bits);
+            (((min_bits - 1) / 5) + 1) * 5
+        };
+
         // The line above guarantees that needed_bits is a multiple of 5
         self.hash_with_precision(needed_bits).unwrap()
     }
 
     /// Create the largest hash, that does nto includes top_left and bottom_right
     pub fn get_outer_hash(&self) -> String {
-        let lat_bits = (360. / self.height()).floor() as usize
-            - if self.crosses_vertical_chunks() { 1 } else { 0 };
-        let lng_bits = (360. / self.width()).floor() as usize
-            - if self.crosses_horizontal_chunks() {
-                1
-            } else {
-                0
-            };
+        let needed_bits = if self.height() == 0.0 || self.width() == 0.0 {
+            8 * 5
+        } else {
+            let lat_bits = (360. / self.height()).floor() as usize
+                - if self.crosses_vertical_chunks() { 1 } else { 0 };
+            let lng_bits = (360. / self.width()).floor() as usize
+                - if self.crosses_horizontal_chunks() {
+                    1
+                } else {
+                    0
+                };
 
-        let max_bits = lat_bits.min(lng_bits);
-        let needed_bits = (((max_bits + 1) / 5) - 1) * 5;
+            let max_bits = lat_bits.min(lng_bits);
+            (((max_bits + 1) / 5) - 1) * 5
+        };
+
         // The line above guarantees that needed_bits is a multiple of 5
         self.hash_with_precision(needed_bits).unwrap()
     }
@@ -335,6 +345,20 @@ mod tests {
     }
 
     #[test]
+    fn test_geohash_cases() {
+        let cases = vec![Coordinate::from_str("50.944133,7.573788").unwrap()];
+
+        for case in cases {
+            let geohash = Geohash::try_from(case);
+            assert!(geohash.is_ok());
+            let geohash = geohash.unwrap();
+            let result = geohash.get_outer_hash();
+            println!("result {result}");
+            assert!(false)
+        }
+    }
+
+    #[test]
     fn test_geohash_decode_encode_stresstest() {
         let hashes = build_test_hash_with_length(2, None);
         println!("hi {}", hashes.len());
@@ -345,7 +369,7 @@ mod tests {
             assert!(geohash.is_ok());
             let geohash = geohash.unwrap();
             let result = geohash.hash_with_max_length(hash.chars().count());
-            assert_eq!(result, hash); 
+            assert_eq!(result, hash);
         }
     }
 
