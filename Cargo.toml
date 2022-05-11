@@ -23,10 +23,9 @@ regex = { version = "1.5", optional = true }
 reqwest = { version = "0.11", features = ["json", "blocking"], optional = true, default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0.30"
-tokio = { version = "1", features = ["full"], optional = true }
 
 [features]
-all = ["format_all", "resolve_all"]
+all = ["format_all", "resolve_all", "serde"]
 default = ["reqwest?/default"]
 
 format_any = []
@@ -36,7 +35,7 @@ format_dms = ["dep:regex", "format_any"]
 format_geohash = ["format_any"]
 serde = ["dep:serde"]
 resolve_all = ["resolve_osm"]
-resolve_osm = ["dep:reqwest", "dep:tokio", "dep:serde"]
+resolve_osm = ["dep:reqwest", "dep:serde"]
 
 rustls-tls = ["reqwest?/rustls-tls"]
 
