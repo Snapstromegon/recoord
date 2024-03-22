@@ -15,6 +15,9 @@ keywords = [
   "Nominatim",
 ]
 categories = ["encoding", "parsing"]
+exclude = [
+  ".github/**",
+]
 
 [package.metadata.docs.rs]
 features = ["all"]
