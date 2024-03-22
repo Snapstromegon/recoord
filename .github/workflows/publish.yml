@@ -1,0 +1,24 @@
+name: Publish
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_run:
+    workflows: [Run Tests]
+    types:
+      - completed
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Login
+      run: cargo login ${{ secrets.CRATES_IO_API_TOKEN }}
+    - name: Push
+      run: cargo publish
