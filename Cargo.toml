@@ -28,7 +28,7 @@ features = ["all"]
 regex = { version = "1.5", optional = true }
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true, default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0.30"
+thiserror = "2.0.0"
 
 [features]
 all = ["format_all", "resolve_all", "serde"]
