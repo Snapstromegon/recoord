@@ -1,6 +1,6 @@
 [package]
 name = "recoord"
-version = "0.2.7"
+version = "0.2.8"
 authors = ["Snapstromegon"]
 edition = "2021"
 description = "Handle coordinates in different formats."
