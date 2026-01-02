@@ -1,6 +1,6 @@
 [package]
 name = "recoord"
-version = "0.2.8"
+version = "0.3.0"
 authors = ["Snapstromegon"]
 edition = "2021"
 description = "Handle coordinates in different formats."
@@ -26,9 +26,9 @@ features = ["all"]
 
 [dependencies]
 regex = { version = "1.5", optional = true }
-reqwest = { version = "0.12", features = ["json", "blocking"], optional = true, default-features = false }
+reqwest = { version = "0.13", features = ["json", "blocking"], optional = true, default-features = false }
 serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "2.0.0"
+thiserror = "2.0.17"
 
 [features]
 all = ["format_all", "resolve_all", "serde"]
@@ -42,8 +42,6 @@ format_geohash = ["format_any"]
 serde = ["dep:serde"]
 resolve_all = ["resolve_osm"]
 resolve_osm = ["dep:reqwest", "dep:serde"]
-
-rustls-tls = ["reqwest?/rustls-tls"]
 
 
 [package.metadata.cargo-all-features]
